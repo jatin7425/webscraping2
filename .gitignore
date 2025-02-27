@@ -13,4 +13,4 @@ data/*.csv
 .DS_Store
 Thumbs.db
 
-*.odt
+*.json
