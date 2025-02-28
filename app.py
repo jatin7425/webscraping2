@@ -1,4 +1,5 @@
 import json
+import re
 import concurrent
 import concurrent.futures
 from selenium import webdriver
@@ -146,46 +147,69 @@ def Navigate_to_productPage(category):
             print(f"✅ Pop-up loaded successfully for Navigation! {category['category']}")
 
         while True:
+            i = 0
             try:
                 products = WebDriverWait(driver, 10).until(
                     EC.presence_of_all_elements_located((By.CLASS_NAME, "product-list-item"))
                 )
-                break  # Exit loop if elements are successfully found
-            except:
-                print("🔄 Retrying to locate product elements due to stale reference...")
+                break  # ✅ Successfully found elements, exit loop
+            except StaleElementReferenceException:
+                print(f"🔄 Attempt {i + 1}: Retrying due to stale element reference...")
+            except TimeoutException:
+                print(f"❌ Attempt {i + 1}: Timed out while waiting for product elements...")
+                break  # No point in retrying if timeout occurs
+            except Exception as e:
+                print(f"❌ Unexpected error: {e}")
+                break
 
         for index in range(len(products)):
             try:
-                products = driver.find_elements(By.CLASS_NAME, "product-list-item")  # Re-fetch elements
+                # 🔄 Re-fetch elements on each iteration
+                products = driver.find_elements(By.CLASS_NAME, "product-list-item")  
+                if index >= len(products):  # Ensure index is within range
+                    break  
                 product = products[index]
+
                 driver.execute_script("arguments[0].scrollIntoView();", product)
                 WebDriverWait(driver, 10).until(
                     EC.element_to_be_clickable((By.CLASS_NAME, "product-list-item"))
                 )
                 product.click()
+
+                # 🔄 Re-fetch button after page update
+                WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.ID, "phProductUrl"))
+                )
+                navigate_Button = driver.find_element(By.ID, "phProductUrl")
+                driver.execute_script("arguments[0].scrollIntoView();", navigate_Button)
+                navigate_Button.click()
+
                 current_url = driver.current_url
                 fetch_product_dets(current_url, category)
+
             except StaleElementReferenceException:
                 print(f"🔄 Stale Element, retrying product {index}...")
                 continue
             except Exception as e:
                 print(f"❌ Error clicking product {index}: {e}")
                 continue
+            
     except Exception as e:
         print(f"❌ Error navigating to product page: {e}")
 
-
 def fetch_product_dets(url, category):
-    import re
-
-    def extract_model_name(url):
-        match = re.search(r'/product/([^/]+)/overview', url)
-        return match.group(1) if match else None
+    
+    def extract_product_code(url):
+        """Extracts the product model from the given URL."""
+        print(f"🔍 Debug: Checking URL - {url}")  # Debugging Line
+        match = re.search(r'product/([^/]+)/overview', url)  # Corrected regex
+        return match.group(1) if match else "Unknown Model"
     
     try:
         driver.get(url)
-        category.update({"Product Code": extract_model_name(url)})
-        print(f"On product page: {category}")
+        category.update({"Product Code": extract_product_code(url)})
+        # Append JSON object to a file
+
     except:
         print("error")
 
