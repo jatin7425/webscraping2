@@ -1,4 +1,6 @@
 import json
+import concurrent
+import concurrent.futures
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
@@ -104,10 +106,13 @@ def get_itrate_net_subCategory(param):
             )
         except Exception as e:
             print(f"❌ Error fetching subcategories for {category['category']}: {e}")
+            print(f" returning : \n(parent_category: {category['parent_category']},\n category: {category['category']},\n URL: {category['URL']} )")
+            Naviagate_to_productpage(category)
             return category
         
         for link in links:
             print(f"🔍 Found deeper subcategory: {category['category']} → {link.text.strip()}")
+            print(f"data : \n(parent_category: {category['category']},\n category: {link.text.strip()},\n URL: {link.get_attribute('href')} )")
             values = {
                 "parent_category": category['category'],
                 "category": link.text.strip(),
@@ -117,21 +122,80 @@ def get_itrate_net_subCategory(param):
 
     # Recursively process subcategories and flatten results
     subcategories = []
-    for item in processed_categories:
-        subcategories.extend(get_itrate_net_subCategory([item]))  # Flatten results
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        futures = {executor.submit(get_itrate_net_subCategory, [item]): item for item in processed_categories}
+        for future in concurrent.futures.as_completed(futures):
+            subcategories.extend(future.result())
     return subcategories
 
-all_data = []
+def Naviagate_to_productpage(category):
+    """Navigates to the product page and interacts with products."""
+    driver.get(category['URL'])
+    try:
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.CLASS_NAME, "dds__modal__body"))
+        )
+        print(f"✅ Pop-up loaded successfully! {category['category']}")
+
+        while True:
+            try:
+                products = WebDriverWait(driver, 10).until(
+                    EC.presence_of_all_elements_located((By.CLASS_NAME, "product-list-item"))
+                )
+                break  # Exit loop if elements are successfully found
+            except:
+                print("🔄 Retrying to locate product elements due to stale reference...")
+
+        for index in range(len(products)):
+            try:
+                # Re-fetch product list to avoid stale reference
+                products = WebDriverWait(driver, 10).until(
+                    EC.presence_of_all_elements_located((By.CLASS_NAME, "product-list-item"))
+                )
+
+                # Ensure index is within bounds
+                if index >= len(products):
+                    print("❌ Skipping: Product index out of range")
+                    continue
+                
+                product = products[index]
+
+                # Scroll into view and click using JavaScript (avoids some stale issues)
+                driver.execute_script("arguments[0].scrollIntoView();", product)
+                WebDriverWait(driver, 10).until(
+                    EC.element_to_be_clickable((By.CLASS_NAME, "product-list-item"))
+                )
+                driver.execute_script("arguments[0].click();", product)
+                print("✅ Clicked on product successfully!")
+
+                # Get current URL after navigation
+                current_url = driver.current_url
+                print(f"🔗 Navigated to: {current_url}")
+
+                # Call function to fetch product details
+                fetch_product_dets(current_url)
+
+                # Navigate back to product listing page before clicking the next product
+                driver.get(category['URL'])
+
+            except Exception as e:
+                print(f"❌ Could not click product: {e}")
+
+    except Exception as e:
+        print(f"❌ Error navigating to product page: {e}")
+
+
+def fetch_product_dets(url):
+    try:
+        driver.get("https://www.dell.com/support/home/en-in")
+        print("hello")
+    except:
+        print("error")
+
 
 for items in second_level_categories:
     for item in items:
-        all_data.extend(get_itrate_net_subCategory([item]))  # Flatten results
-
-# Save to JSON as a flat list
-with open("output.json", "w", encoding="utf-8") as json_file:
-    json.dump(all_data, json_file, indent=4, ensure_ascii=False)
-
-print("✅ Data saved to output.json")
+        get_itrate_net_subCategory([item])
 
 # Close the browser after everything is done
 driver.quit()
