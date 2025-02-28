@@ -1,0 +1,16 @@
+https://www.dell.com/support/components/productselector/allproducts?country=in&language=en&region=ap&segment=bsd&customerset=inbsd1&appName=incidents&version=v2&_=1740740652983
+
+https://www.dell.com/support/components/productselector/getproducts?category=all-products/esuprt_computers&country=in&language=en&region=ap&segment=bsd&customerset=inbsd1&appName=home&version=v2&inccomponents=False&isolated=False
+
+https://www.dell.com/support/components/productselector/getproducts?category=all-products/esuprt_electronics_accessories&country=in&language=en&region=ap&segment=bsd&customerset=inbsd1&appName=home&version=v2&inccomponents=False&isolated=False
+
+https://www.dell.com/support/components/productselector/getproducts?category=all-products/esuprt_software&country=in&language=en&region=ap&segment=bsd&customerset=inbsd1&appName=home&version=v2&inccomponents=False&isolated=False
+
+https://www.dell.com/support/components/productselector/getproducts?category=all-products/esuprt_infrastructure&country=in&language=en&region=ap&segment=bsd&customerset=inbsd1&appName=home&version=v2&inccomponents=False&isolated=False
+
+--->
+
+https://www.dell.com/support/components/productselector/allproducts?category=all-products/esuprt_edge_gateways&country=in&language=en&region=ap&segment=bsd&customerset=inbsd1&appName=incidents&version=v2&_=1740742995899
+
+
+    "Cookie": "bm_sv=YOUR_UPDATED_COOKIE_HERE"  # Replace with latest cookie

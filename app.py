@@ -1,222 +1,73 @@
-import json
-import re
-import concurrent
-import concurrent.futures
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import NoSuchElementException, TimeoutException, StaleElementReferenceException
+import random
+import requests
+from bs4 import BeautifulSoup
 
-# Setup ChromeDriver
-service = Service("ChromeDriver/chromedriver")  # Ensure this path is correct
-options = webdriver.ChromeOptions()
-options.add_argument("--headless")  # Run in background
-driver = webdriver.Chrome(service=service, options=options)
+BASE_URL = "https://www.dell.com/support/components/productselector/"
+PRODUCTS_FIRST_CATEGORY_API = "https://www.dell.com/support/components/productselector/getproducts"
 
-def find_categories():
-    """Extracts product categories from Dell's support page."""
-    try:
-        driver.get("https://www.dell.com/support/home/en-in")
+url = f"{BASE_URL}allproducts?country=in&language=en&region=ap&segment=bsd&customerset=inbsd1&appName=incidents&version=v2"
 
-        # Click "Browse All Products" button
-        WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.ID, "btn-homedashboard-browse-all-product"))
-        ).click()
-        print("✅ Clicked 'Browse All Products' button successfully!")
+user_agents = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_1data-vmpath5_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
+]
 
-        # Wait for the pop-up to appear
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.CLASS_NAME, "dds__modal__body"))
-        )
-        print("✅ Pop-up loaded successfully!")
+headers = {
+    "User-Agent": random.choice(user_agents),
+    "Referer": "https://www.dell.com/support/home/",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Accept": "application/json, text/plain, */*",
+    "Connection": "keep-alive",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Dest": "empty",
+    "X-Requested-With": "XMLHttpRequest",
+}
 
-        # Wait for product category cards
-        links = WebDriverWait(driver, 10).until(
-            EC.presence_of_all_elements_located((By.CLASS_NAME, "product-card"))
-        )
+response = requests.get(url, headers=headers)
+print("Status Code:", response.status_code)
 
-        # Extract category names and URLs
-        return [
-            {
-                "category": link.find_element(By.TAG_NAME, "h6").get_attribute("innerHTML").strip(),
-                "URL": link.find_element(By.TAG_NAME, "a").get_attribute("href")
-            }
-            for link in links
-        ]
+def fetch_categories():
+    """Extract category names and their identifiers."""
+    soup = BeautifulSoup(response.text, "html.parser")
 
-    except Exception as e:
-        print("❌ Error:", e)
-        return []
-    
-found_categories = find_categories()
+    categories = soup.find_all("a", class_="linked-card")
 
-def process_categories(param, data_path_value=""):
-    """Processes categories and extracts subcategories based on data-path."""
-    processed_categories = []
-    
-    for category in param:
-        driver.get(category['URL'])
+    if not categories:
+        print("No categories found. Check 'output.html' for debugging.")
+        return {}
+
+    category_map = {}
+    for category in categories:
+        title = category.find("h6").get_text(strip=True) if category.find("h6") else "N/A"
+        identifier = category.get("data-path", "N/A")
+        if identifier != "N/A":
+            category_map[title] = identifier
+
+    return category_map
+
+def get_first_level_category(categories):
+    """Fetch product details for each category."""
+    for category_name, category_id in categories.items():
+        product_url = f"{PRODUCTS_FIRST_CATEGORY_API}?category={category_id}&country=in&language=en&region=ap&segment=bsd&customerset=inbsd1&appName=home&version=v2&inccomponents=False&isolated=False"
+
+        response = requests.get(product_url, headers=headers)
         
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.CLASS_NAME, "dds__modal__body"))
-        )
-        print(f"✅ Pop-up loaded successfully! {category['category']}")
-
-        try:
-            links = WebDriverWait(driver, 10).until(
-                EC.presence_of_all_elements_located((By.XPATH, f"//a[@data-path='{data_path_value}']"))
-            )
-        except Exception as e:
-            print(f"❌ Error fetching subcategories for {category['category']}: {e}")
-            continue
-        
-        for link in links:
-            print(f"🔍 Found subcategory: {category['category']} → {link.text.strip()}")
-            values = {
-                "family": category['category'],
-                "parent_category": category['category'],
-                "category": link.text.strip(),
-                "URL": link.get_attribute("href")
-            }
-            processed_categories.append(values)
-    
-    return processed_categories
-
-# Run the functions
-first_level_categories = process_categories(found_categories)
-second_level_categories = []
-for item in first_level_categories:
-    second_level_categories.append(process_categories([item], item['category']))
-    
-def get_itrate_net_subCategory(param):
-    """Processes categories and extracts subcategories based on data-path."""
-    processed_categories = []
-    
-    for category in param:
-        driver.get(category['URL'])
-        
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.CLASS_NAME, "dds__modal__body"))
-        )
-        print(f"✅ Pop-up loaded successfully! {category['category']}")
-        
-        data_path_value = f"{category['parent_category']}@,{category['category']}"
-        try:
-            links = WebDriverWait(driver, 10).until(
-                EC.presence_of_all_elements_located((By.XPATH, f"//a[@data-path='{data_path_value}']"))
-            )
-        except Exception as e:
-            print(f"❌ Error fetching subcategories for {category['category']}: {e}")
-            # print(category)
-            if "LOB" in category:
-                Navigate_to_productPage(category)
-            return category
-        
-        for link in links:
-            print(f"🔍 Found deeper subcategory: {category['category']} → {link.text.strip()}")
-            # print(category)
-            values = {
-                "family": category['family'],
-                "LOB" : category.get("LOB", category["category"]),
-                "parent_category": category['category'],
-                "category": link.text.strip(),
-                "URL": link.get_attribute("href")
-            }
-            processed_categories.append(values)
-
-    # Recursively process subcategories and flatten results
-    subcategories = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-        futures = {executor.submit(get_itrate_net_subCategory, [item]): item for item in processed_categories}
-        for future in concurrent.futures.as_completed(futures):
-            subcategories.extend(future.result())
-    return subcategories
-
-def Navigate_to_productPage(category):
-    """Navigates to the product page and interacts with products."""
-    driver.get(category['URL'])
-    try:
-        modal = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.CLASS_NAME, "dds__modal__body"))
-        )
-        if not modal:
-            print("Pop-up not found")
-        else:
-            print(f"✅ Pop-up loaded successfully for Navigation! {category['category']}")
-
-        while True:
-            i = 0
-            try:
-                products = WebDriverWait(driver, 10).until(
-                    EC.presence_of_all_elements_located((By.CLASS_NAME, "product-list-item"))
-                )
-                break  # ✅ Successfully found elements, exit loop
-            except StaleElementReferenceException:
-                print(f"🔄 Attempt {i + 1}: Retrying due to stale element reference...")
-            except TimeoutException:
-                print(f"❌ Attempt {i + 1}: Timed out while waiting for product elements...")
-                break  # No point in retrying if timeout occurs
-            except Exception as e:
-                print(f"❌ Unexpected error: {e}")
-                break
-
-        for index in range(len(products)):
-            try:
-                # 🔄 Re-fetch elements on each iteration
-                products = driver.find_elements(By.CLASS_NAME, "product-list-item")  
-                if index >= len(products):  # Ensure index is within range
-                    break  
-                product = products[index]
-
-                driver.execute_script("arguments[0].scrollIntoView();", product)
-                WebDriverWait(driver, 10).until(
-                    EC.element_to_be_clickable((By.CLASS_NAME, "product-list-item"))
-                )
-                product.click()
-
-                # 🔄 Re-fetch button after page update
-                WebDriverWait(driver, 10).until(
-                    EC.presence_of_element_located((By.ID, "phProductUrl"))
-                )
-                navigate_Button = driver.find_element(By.ID, "phProductUrl")
-                driver.execute_script("arguments[0].scrollIntoView();", navigate_Button)
-                navigate_Button.click()
-
-                current_url = driver.current_url
-                fetch_product_dets(current_url, category)
-
-            except StaleElementReferenceException:
-                print(f"🔄 Stale Element, retrying product {index}...")
-                continue
-            except Exception as e:
-                print(f"❌ Error clicking product {index}: {e}")
-                continue
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.text, 'html.parser')
+            sub_categories = soup.find_all("a", data-path="")
             
-    except Exception as e:
-        print(f"❌ Error navigating to product page: {e}")
+            for category in sub_categories:
+                pass
+            
+            print(f"Fetched products for: {category_name} ({category_id})")
+        else:
+            print(f"Failed to fetch products for {category_name} (Status: {response.status_code})")
 
-def fetch_product_dets(url, category):
-    
-    def extract_product_code(url):
-        """Extracts the product model from the given URL."""
-        print(f"🔍 Debug: Checking URL - {url}")  # Debugging Line
-        match = re.search(r'product/([^/]+)/overview', url)  # Corrected regex
-        return match.group(1) if match else "Unknown Model"
-    
-    try:
-        driver.get(url)
-        category.update({"Product Code": extract_product_code(url)})
-        # Append JSON object to a file
-
-    except:
-        print("error")
-
-
-for items in second_level_categories:
-    for item in items:
-        get_itrate_net_subCategory([item])
-
-# Close the browser after everything is done
-driver.quit()
+if response.status_code == 200:
+    categories = fetch_categories()
+    get_first_level_category(categories)
+else:
+    print("Failed to fetch the page. Try checking the URL or headers.")

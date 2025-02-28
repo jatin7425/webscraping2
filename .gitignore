@@ -9,6 +9,8 @@ __pycache__/
 # Ignore CSV data files (if you don’t want to track them)
 data/*.csv
 
+all-products/
+
 # Ignore system files
 .DS_Store
 Thumbs.db
