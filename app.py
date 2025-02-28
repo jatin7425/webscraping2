@@ -6,6 +6,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import NoSuchElementException, TimeoutException, StaleElementReferenceException
 
 # Setup ChromeDriver
 service = Service("ChromeDriver/chromedriver")  # Ensure this path is correct
@@ -73,6 +74,7 @@ def process_categories(param, data_path_value=""):
         for link in links:
             print(f"🔍 Found subcategory: {category['category']} → {link.text.strip()}")
             values = {
+                "family": category['category'],
                 "parent_category": category['category'],
                 "category": link.text.strip(),
                 "URL": link.get_attribute("href")
@@ -106,14 +108,17 @@ def get_itrate_net_subCategory(param):
             )
         except Exception as e:
             print(f"❌ Error fetching subcategories for {category['category']}: {e}")
-            print(f" returning : \n(parent_category: {category['parent_category']},\n category: {category['category']},\n URL: {category['URL']} )")
-            Naviagate_to_productpage(category)
+            # print(category)
+            if "LOB" in category:
+                Navigate_to_productPage(category)
             return category
         
         for link in links:
             print(f"🔍 Found deeper subcategory: {category['category']} → {link.text.strip()}")
-            print(f"data : \n(parent_category: {category['category']},\n category: {link.text.strip()},\n URL: {link.get_attribute('href')} )")
+            # print(category)
             values = {
+                "family": category['family'],
+                "LOB" : category.get("LOB", category["category"]),
                 "parent_category": category['category'],
                 "category": link.text.strip(),
                 "URL": link.get_attribute("href")
@@ -128,14 +133,17 @@ def get_itrate_net_subCategory(param):
             subcategories.extend(future.result())
     return subcategories
 
-def Naviagate_to_productpage(category):
+def Navigate_to_productPage(category):
     """Navigates to the product page and interacts with products."""
     driver.get(category['URL'])
     try:
-        WebDriverWait(driver, 10).until(
+        modal = WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.CLASS_NAME, "dds__modal__body"))
         )
-        print(f"✅ Pop-up loaded successfully! {category['category']}")
+        if not modal:
+            print("Pop-up not found")
+        else:
+            print(f"✅ Pop-up loaded successfully for Navigation! {category['category']}")
 
         while True:
             try:
@@ -148,47 +156,36 @@ def Naviagate_to_productpage(category):
 
         for index in range(len(products)):
             try:
-                # Re-fetch product list to avoid stale reference
-                products = WebDriverWait(driver, 10).until(
-                    EC.presence_of_all_elements_located((By.CLASS_NAME, "product-list-item"))
-                )
-
-                # Ensure index is within bounds
-                if index >= len(products):
-                    print("❌ Skipping: Product index out of range")
-                    continue
-                
+                products = driver.find_elements(By.CLASS_NAME, "product-list-item")  # Re-fetch elements
                 product = products[index]
-
-                # Scroll into view and click using JavaScript (avoids some stale issues)
                 driver.execute_script("arguments[0].scrollIntoView();", product)
                 WebDriverWait(driver, 10).until(
                     EC.element_to_be_clickable((By.CLASS_NAME, "product-list-item"))
                 )
-                driver.execute_script("arguments[0].click();", product)
-                print("✅ Clicked on product successfully!")
-
-                # Get current URL after navigation
+                product.click()
                 current_url = driver.current_url
-                print(f"🔗 Navigated to: {current_url}")
-
-                # Call function to fetch product details
-                fetch_product_dets(current_url)
-
-                # Navigate back to product listing page before clicking the next product
-                driver.get(category['URL'])
-
+                fetch_product_dets(current_url, category)
+            except StaleElementReferenceException:
+                print(f"🔄 Stale Element, retrying product {index}...")
+                continue
             except Exception as e:
-                print(f"❌ Could not click product: {e}")
-
+                print(f"❌ Error clicking product {index}: {e}")
+                continue
     except Exception as e:
         print(f"❌ Error navigating to product page: {e}")
 
 
-def fetch_product_dets(url):
+def fetch_product_dets(url, category):
+    import re
+
+    def extract_model_name(url):
+        match = re.search(r'/product/([^/]+)/overview', url)
+        return match.group(1) if match else None
+    
     try:
-        driver.get("https://www.dell.com/support/home/en-in")
-        print("hello")
+        driver.get(url)
+        category.update({"Product Code": extract_model_name(url)})
+        print(f"On product page: {category}")
     except:
         print("error")
 
