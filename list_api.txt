@@ -14,3 +14,9 @@ https://www.dell.com/support/components/productselector/allproducts?category=all
 
 
     "Cookie": "bm_sv=YOUR_UPDATED_COOKIE_HERE"  # Replace with latest cookie
+
+
+https://www.dell.com/support/components/productselector/allproducts?category=all-products/esuprt_desktop/esuprt_desktop_alienware/esuprt_desktop_alienware_alpha&country=in&language=en&region=ap&segment=bsd&customerset=inbsd1&appName=incidents&version=v2&_=1740802427092
+
+all-products/esuprt_desktop/esuprt_desktop_alienware/esuprt_desktop_alienware_alpha
+all-products/esuprt_desktop/esuprt_desktop_alienware/esuprt_desktop_alienware_alpha
