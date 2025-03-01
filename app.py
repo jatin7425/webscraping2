@@ -94,6 +94,7 @@ def get_first_level_category(categories):
 
                 if data_vmpath and inner_text:
                     sub_category_map.append({
+                        "itration_path": [category_name , inner_text],
                         "current_category": inner_text,
                         "data-vmpath": data_vmpath
                     })
@@ -109,6 +110,7 @@ def iterate_to_depth(category):
     """Recursively fetch subcategories"""
     sub_category_map = []
     
+    itration_path = category["itration_path"]
     current_category = category["current_category"]
     data_vmpath = category["data-vmpath"]
     
@@ -126,12 +128,12 @@ def iterate_to_depth(category):
     if response.status_code == 200:
         soup = BeautifulSoup(response.text, "html.parser")    
 
-        print(f"3rd Fetching subcategories for: {data_path}")
+        print(f"Fetching subcategories for {data_path} in {current_category}")
 
         sub_categories = soup.find_all("a", attrs={"data-path": data_path})  
 
         if not sub_categories:
-            print(f"No subcategories found for {current_category}.")
+            # print(f"No subcategories found for {current_category}.")
             fetch_product_list(category)
             return [category]
 
@@ -140,6 +142,7 @@ def iterate_to_depth(category):
             this_category = sub.get_text(strip=True)
             if this_category:
                 sub_category_map.append({
+                    "itration_path": itration_path + [this_category],
                     "previous_category": current_category,
                     "current_category": this_category,
                     "data-vmpath": data_vmpath
@@ -160,6 +163,7 @@ def iterate_to_depth(category):
 
 def fetch_product_list(category):
     """fetching product list"""
+    itration_path = category["itration_path"]
     current_category = category["current_category"]
     data_vmpath = category["data-vmpath"]
     
@@ -178,10 +182,56 @@ def fetch_product_list(category):
         for product in products:
             data_info = product.get("data-info")
             text = product.get_text(strip=True)
-            products_dets.append({
+            prod = {
+                "itration_path": itration_path + [text],
                 "data_info" : data_info,
                 "text" : text
-            })
+            }
+            # navigate_to_support_page(prod)
+            print({f"Updating ({prod['text']}) in output.json file."})
+            if isinstance(prod['data_info'], str):
+                try:
+                    prod['data_info'] = json.loads(prod['data_info'])
+                except json.JSONDecodeError:
+                    print("Error decoding JSON in data_info")
+                
+                try:
+                    with open("output.json", "r+", encoding="utf-8") as f:
+                        existing_data = json.load(f)  # Load current JSON data
+                        existing_data.extend(products_dets)  # Add new data
+                        f.seek(0)  # Move pointer to the beginning of the file
+                        json.dump(existing_data, f, indent=4, ensure_ascii=False)
+                except (FileNotFoundError, json.JSONDecodeError):
+                    # Create new file if it doesn't exist
+                    with open("output.json", "w", encoding="utf-8") as f:
+                        json.dump(products_dets, f, indent=4, ensure_ascii=False)
+                
+                
+            products_dets.append(prod)
+
+def navigate_to_support_page(product):
+    data_info = product['data_info']
+    
+    if isinstance(data_info, str): 
+        try:
+            data_info = json.loads(data_info)
+        except json.JSONDecodeError:
+            print(f"Error decoding JSON in navigate_to_support_page: {data_info}")
+            data_info = {}
+    
+    product_code = data_info.get('productCode', 'N/A')
+    
+    url = f"https://www.dell.com/support/contactus/en-in/ContactUs/GetProductDashboard?serviceTag=&productCode={product_code}&agreementID=&isTrident=false&isEmcUser=false"
+
+    try:
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code == 200:
+            print(response.text)  # Get the full HTML response
+        else:
+            print(f"Failed to fetch page, status code: {response.status_code}")
+    except requests.RequestException as e:
+        print(f"Error making request: {e}")
 
 # Fetch categories only if the response is OK
 if response.status_code == 200:
