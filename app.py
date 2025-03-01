@@ -118,9 +118,6 @@ def iterate_to_depth(category):
         data_path = f"{previous_category}@,{current_category}"
     else:
         data_path = current_category
-        
-    with open("list_url.txt", "a") as f:
-        f.write(f"\n\n {data_path}")
 
     product_url = f"{PRODUCTS_FIRST_CATEGORY_API}?category={data_vmpath}&country=in&language=en&region=ap&segment=bsd&customerset=inbsd1&appName=incidents&version=v2"
 
