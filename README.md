@@ -3,6 +3,7 @@
 This script scrapes product categories and subcategories from Dell's support page using Python and BeautifulSoup. It navigates through various product levels and extracts product details.
 
 ## ✨ Features
+
 - 🏷️ Scrapes Dell's support product categories
 - 🔄 Iterates through subcategories to find final product pages
 - 💾 Saves extracted data to `output.json`
@@ -10,6 +11,7 @@ This script scrapes product categories and subcategories from Dell's support pag
 - 🛡️ Uses random user-agents to prevent blocking
 
 ## 📦 Requirements
+
 - 🐍 Python 3.x
 - Required Python libraries:
   ```bash
@@ -17,6 +19,7 @@ This script scrapes product categories and subcategories from Dell's support pag
   ```
 
 ## ⚙️ How It Works
+
 1. **📂 Fetch Main Categories**
    - Calls Dell's API to retrieve all product categories.
 2. **🗂️ Iterate Through Categories**
@@ -27,13 +30,17 @@ This script scrapes product categories and subcategories from Dell's support pag
    - Extracted product details are saved to `output.json`.
 
 ## 🚀 Usage
+
 Run the script with:
+
 ```bash
 python scraper.py
 ```
 
 ## 📊 Output
+
 The script creates an `output.json` file containing:
+
 ```json
 [
   {
@@ -45,6 +52,7 @@ The script creates an `output.json` file containing:
 ```
 
 ## 🌍 API Endpoints Used
+
 - **🔗 Main Categories API:**
   ```
   https://www.dell.com/support/components/productselector/allproducts?country=in&language=en&region=ap&segment=bsd&customerset=inbsd1&appName=incidents&version=v2
@@ -55,10 +63,11 @@ The script creates an `output.json` file containing:
   ```
 
 ## ⚠️ Notes
+
 - 🔄 Make sure to update the `Cookie` value in `headers` if requests are getting blocked.
 - 🔀 Adjust `User-Agent` rotation if Dell applies additional bot-detection mechanisms.
 - 🏗️ The script may require modifications if Dell changes its website structure.
-
-## 📜 License
-📝 MIT License
-
+- 📌 **Add your virtual environment folder (`venv` or equivalent) to `.gitignore` to prevent unnecessary files from being tracked.**
+  ```
+  echo "venv/" >> .gitignore
+  ```
